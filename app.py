@@ -48,67 +48,80 @@ class SamplingOptions:
 
 
 
+offload = False
+name = "flux-dev"
+is_schnell = False
+feature_path = 'feature'
+output_dir = 'result'
+add_sampling_metadata = True
+# class FluxEditor:
+#     def __init__(self, args):
+#         self.args = args
+#         self.device = torch.device(args.device)
+#         self.offload = args.offload
+#         self.name = args.name
+#         self.is_schnell = args.name == "flux-schnell"
 
-class FluxEditor:
-    def __init__(self, args):
-        self.args = args
-        self.device = torch.device(args.device)
-        self.offload = args.offload
-        self.name = args.name
-        self.is_schnell = args.name == "flux-schnell"
+#         self.feature_path = 'feature'
+#         self.output_dir = 'result'
+#         self.add_sampling_metadata = True
 
-        self.feature_path = 'feature'
-        self.output_dir = 'result'
-        self.add_sampling_metadata = True
+#         if self.name not in configs:
+#             available = ", ".join(configs.keys())
+#             raise ValueError(f"Got unknown model name: {name}, chose from {available}")
 
-        if self.name not in configs:
-            available = ", ".join(configs.keys())
-            raise ValueError(f"Got unknown model name: {name}, chose from {available}")
-
-        # init all components
+#         # init all components
         
 
-        if self.offload:
-            self.model.cpu()
-            torch.cuda.empty_cache()
-            self.ae.encoder.to(self.device)
+#         if self.offload:
+#             self.model.cpu()
+#             torch.cuda.empty_cache()
+#             self.ae.encoder.to(self.device)
+ae = load_ae(name, device="cpu" if offload else device)
+t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
+clip = load_clip(device)
+model = load_flow_model(name, device="cpu" if offload else device)
+print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
+print("!!!!!!!!self.t5!!!!!!",next(t5.parameters()).device)
+print("!!!!!!!!self.clip!!!!!!",next(clip.parameters()).device)
+print("!!!!!!!!self.model!!!!!!",next(model.parameters()).device)
 
-    @torch.inference_mode()
-    def encode(self, init_image, torch_device, ae):
-        init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
-        init_image = init_image.unsqueeze(0) 
-        init_image = init_image.to(torch_device)
-        ae = ae.cuda()
-        with torch.no_grad():
-            init_image = ae.encode(init_image.to()).to(torch.bfloat16)
-        return init_image
+@torch.inference_mode()
+def encode(init_image, torch_device, ae):
+    init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
+    init_image = init_image.unsqueeze(0) 
+    init_image = init_image.to(torch_device)
+    ae = ae.cuda()
+    with torch.no_grad():
+        init_image = ae.encode(init_image.to()).to(torch.bfloat16)
+    return init_image
 
-    @spaces.GPU(duration=120)
-    @torch.inference_mode()
-    def edit(self, init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
+@spaces.GPU(duration=120)
+@torch.inference_mode()
+def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        torch.cuda.empty_cache()
-        seed = None
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch.cuda.empty_cache()
+    seed = None
         # if seed == -1:
         #     seed = None
         
-        shape = init_image.shape
+    shape = init_image.shape
 
-        new_h = shape[0] if shape[0] % 16 == 0 else shape[0] - shape[0] % 16
-        new_w = shape[1] if shape[1] % 16 == 0 else shape[1] - shape[1] % 16
+    new_h = shape[0] if shape[0] % 16 == 0 else shape[0] - shape[0] % 16
+    new_w = shape[1] if shape[1] % 16 == 0 else shape[1] - shape[1] % 16
 
-        init_image = init_image[:new_h, :new_w, :]
+    init_image = init_image[:new_h, :new_w, :]
 
-        width, height = init_image.shape[0], init_image.shape[1]
+    width, height = init_image.shape[0], init_image.shape[1]
 
-        self.ae = load_ae(self.name, device="cpu" if self.offload else self.device)
-        init_image = self.encode(init_image, self.device, self.ae)
+    
+    init_image = encode(init_image, device, ae)
 
-        print(init_image.shape)
+    print(init_image.shape)
 
-        rng = torch.Generator(device="cpu")
-        opts = SamplingOptions(
+    rng = torch.Generator(device="cpu")
+    opts = SamplingOptions(
             source_prompt=source_prompt,
             target_prompt=target_prompt,
             width=width,
@@ -117,121 +130,93 @@ class FluxEditor:
             guidance=guidance,
             seed=seed,
         )
-        if opts.seed is None:
-            opts.seed = torch.Generator(device="cpu").seed()
+    if opts.seed is None:
+        opts.seed = torch.Generator(device="cpu").seed()
         
-        print(f"Generating with seed {opts.seed}:\n{opts.source_prompt}")
-        t0 = time.perf_counter()
+    print(f"Generating with seed {opts.seed}:\n{opts.source_prompt}")
+    t0 = time.perf_counter()
 
-        opts.seed = None
-        if self.offload:
-            self.ae = self.ae.cpu()
-            torch.cuda.empty_cache()
-            self.t5, self.clip = self.t5.to(self.device), self.clip.to(self.device)
+    opts.seed = None
 
-        #############inverse#######################
-        info = {}
-        info['feature'] = {}
-        info['inject_step'] = inject_step
+    #############inverse#######################
+    info = {}
+    info['feature'] = {}
+    info['inject_step'] = inject_step
 
-        if not os.path.exists(self.feature_path):
-            os.mkdir(self.feature_path)
+    print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
+    print("!!!!!!!!self.t5!!!!!!",next(t5.parameters()).device)
+    print("!!!!!!!!self.clip!!!!!!",next(clip.parameters()).device)
+    print("!!!!!!!!self.model!!!!!!",next(model.parameters()).device)
 
-
-        print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",self.device)
-        self.t5 = load_t5(self.device, max_length=256 if self.name == "flux-schnell" else 512)
-        self.clip = load_clip(self.device)
-        self.model = load_flow_model(self.name, device="cpu" if self.offload else self.device)
+    device = torch.cuda.current_device()
+    total_memory = torch.cuda.get_device_properties(device).total_memory
+    allocated_memory = torch.cuda.memory_allocated(device)
+    reserved_memory = torch.cuda.memory_reserved(device)
         
-        
-        print("!!!!!!!!self.t5!!!!!!",next(self.t5.parameters()).device)
-        print("!!!!!!!!self.clip!!!!!!",next(self.clip.parameters()).device)
-        print("!!!!!!!!self.model!!!!!!",next(self.model.parameters()).device)
+    print(f"Total memory: {total_memory / 1024**2:.2f} MB")
+    print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
+    print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
 
-        device = torch.cuda.current_device()
-        total_memory = torch.cuda.get_device_properties(device).total_memory
-        allocated_memory = torch.cuda.memory_allocated(device)
-        reserved_memory = torch.cuda.memory_reserved(device)
-        
-        print(f"Total memory: {total_memory / 1024**2:.2f} MB")
-        print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
-        print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
-
-
-        with torch.no_grad():
-            inp = prepare(self.t5, self.clip, init_image, prompt=opts.source_prompt)
-            inp_target = prepare(self.t5, self.clip, init_image, prompt=opts.target_prompt)
-        timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(self.name != "flux-schnell"))
-
-        # offload TEs to CPU, load model to gpu
-        if self.offload:
-            self.t5, self.clip = self.t5.cpu(), self.clip.cpu()
-            torch.cuda.empty_cache()
-            self.model = self.model.to(self.device)
+    with torch.no_grad():
+        inp = prepare(t5, clip, init_image, prompt=opts.source_prompt)
+        inp_target = prepare(t5, clip, init_image, prompt=opts.target_prompt)
+    timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
 
         # inversion initial noise
-        with torch.no_grad():
-            z, info = denoise(self.model, **inp, timesteps=timesteps, guidance=1, inverse=True, info=info)
+    with torch.no_grad():
+        z, info = denoise(model, **inp, timesteps=timesteps, guidance=1, inverse=True, info=info)
         
-        inp_target["img"] = z
+    inp_target["img"] = z
 
-        timesteps = get_schedule(opts.num_steps, inp_target["img"].shape[1], shift=(self.name != "flux-schnell"))
+    timesteps = get_schedule(opts.num_steps, inp_target["img"].shape[1], shift=(name != "flux-schnell"))
 
-        # denoise initial noise
-        x, _ = denoise(self.model, **inp_target, timesteps=timesteps, guidance=guidance, inverse=False, info=info)
+    # denoise initial noise
+    x, _ = denoise(model, **inp_target, timesteps=timesteps, guidance=guidance, inverse=False, info=info)
 
-        # offload model, load autoencoder to gpu
-        if self.offload:
-            self.model.cpu()
-            torch.cuda.empty_cache()
-            self.ae.decoder.to(x.device)
+    # decode latents to pixel space
+    x = unpack(x.float(), opts.width, opts.height)
 
-        # decode latents to pixel space
-        x = unpack(x.float(), opts.width, opts.height)
-
-        output_name = os.path.join(self.output_dir, "img_{idx}.jpg")
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
-            idx = 0
+    output_name = os.path.join(output_dir, "img_{idx}.jpg")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        idx = 0
+    else:
+        fns = [fn for fn in iglob(output_name.format(idx="*")) if re.search(r"img_[0-9]+\.jpg$", fn)]
+        if len(fns) > 0:
+            idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
         else:
-            fns = [fn for fn in iglob(output_name.format(idx="*")) if re.search(r"img_[0-9]+\.jpg$", fn)]
-            if len(fns) > 0:
-                idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
-            else:
-                idx = 0
+            idx = 0
 
-        ae = ae.cuda()
-        with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16):
-            x = self.ae.decode(x)
+    ae = ae.cuda()
+    with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
+        x = ae.decode(x)
 
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        t1 = time.perf_counter()
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    t1 = time.perf_counter()
 
-        fn = output_name.format(idx=idx)
-        print(f"Done in {t1 - t0:.1f}s. Saving {fn}")
-        # bring into PIL format and save
-        x = x.clamp(-1, 1)
-        x = embed_watermark(x.float())
-        x = rearrange(x[0], "c h w -> h w c")
+    fn = output_name.format(idx=idx)
+    print(f"Done in {t1 - t0:.1f}s. Saving {fn}")
+    # bring into PIL format and save
+    x = x.clamp(-1, 1)
+    x = embed_watermark(x.float())
+    x = rearrange(x[0], "c h w -> h w c")
 
-        img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
-        exif_data = Image.Exif()
-        exif_data[ExifTags.Base.Software] = "AI generated;txt2img;flux"
-        exif_data[ExifTags.Base.Make] = "Black Forest Labs"
-        exif_data[ExifTags.Base.Model] = self.name
-        if self.add_sampling_metadata:
-            exif_data[ExifTags.Base.ImageDescription] = source_prompt
-        img.save(fn, exif=exif_data, quality=95, subsampling=0)
+    img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
+    exif_data = Image.Exif()
+    exif_data[ExifTags.Base.Software] = "AI generated;txt2img;flux"
+    exif_data[ExifTags.Base.Make] = "Black Forest Labs"
+    exif_data[ExifTags.Base.Model] = name
+    if add_sampling_metadata:
+        exif_data[ExifTags.Base.ImageDescription] = source_prompt
+    img.save(fn, exif=exif_data, quality=95, subsampling=0)
 
-        
-        print("End Edit")
-        return img
+    print("End Edit")
+    return img
 
 
 
 def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_available() else "cpu", offload: bool = False):
-    editor = FluxEditor(args)
     is_schnell = model_name == "flux-schnell"
 
     with gr.Blocks() as demo:
@@ -273,7 +258,7 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
                 output_image = gr.Image(label="Generated Image")
 
         generate_btn.click(
-            fn=editor.edit,
+            fn=edit,
             inputs=[init_image, source_prompt, target_prompt, num_steps, inject_step, guidance],
             outputs=[output_image]
         )
@@ -282,16 +267,16 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
     return demo
 
 
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Flux")
-    parser.add_argument("--name", type=str, default="flux-dev", choices=list(configs.keys()), help="Model name")
-    parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu", help="Device to use")
-    parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
-    parser.add_argument("--share", action="store_true", help="Create a public link to your demo")
+# if __name__ == "__main__":
+#     import argparse
+#     parser = argparse.ArgumentParser(description="Flux")
+#     parser.add_argument("--name", type=str, default="flux-dev", choices=list(configs.keys()), help="Model name")
+#     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu", help="Device to use")
+#     parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
+#     parser.add_argument("--share", action="store_true", help="Create a public link to your demo")
 
-    parser.add_argument("--port", type=int, default=41035)
-    args = parser.parse_args()
+#     parser.add_argument("--port", type=int, default=41035)
+#     args = parser.parse_args()
 
-    demo = create_demo(args.name, args.device)
-    demo.launch()
+demo = create_demo("flux-dev", "cuda")
+demo.launch()
