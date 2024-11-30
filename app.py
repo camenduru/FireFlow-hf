@@ -70,7 +70,7 @@ class FluxEditor:
         self.model.eval()
     
     @torch.inference_mode()
-    @spaces.GPU(duration=30)
+    @spaces.GPU(duration=180)
     def edit(self, init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
         torch.cuda.empty_cache()
         seed = None
