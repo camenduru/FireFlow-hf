@@ -48,7 +48,7 @@ class SamplingOptions:
 
 
 
-@spaces.GPU(duration=30)
+@spaces.GPU(duration=120)
 class FluxEditor:
     def __init__(self, args):
         self.args = args
