@@ -35,12 +35,12 @@ import torch
 # print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
 # print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-name = 'flux-dev'
-ae = load_ae(name, device)
-t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
-clip = load_clip(device)
-model = load_flow_model(name, device=device)
+global device = "cuda" if torch.cuda.is_available() else "cpu"
+global name = 'flux-dev'
+global ae = load_ae(name, device)
+global t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
+global clip = load_clip(device)
+global model = load_flow_model(name, device=device)
 print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
 print("!!!!!!!!self.t5!!!!!!",next(t5.parameters()).device)
 print("!!!!!!!!self.clip!!!!!!",next(clip.parameters()).device)
@@ -59,17 +59,17 @@ class SamplingOptions:
 
 
 
-offload = False
-name = "flux-dev"
-is_schnell = False
-feature_path = 'feature'
-output_dir = 'result'
-add_sampling_metadata = True
+global offload = False
+global name = "flux-dev"
+global is_schnell = False
+global feature_path = 'feature'
+global output_dir = 'result'
+global add_sampling_metadata = True
 
 
 
 @torch.inference_mode()
-def encode(init_image, torch_device, ae):
+def encode(init_image, torch_device):
     init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
     init_image = init_image.unsqueeze(0) 
     init_image = init_image.to(torch_device)
@@ -98,7 +98,7 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
     width, height = init_image.shape[0], init_image.shape[1]
 
     
-    init_image = encode(init_image, device, ae)
+    init_image = encode(init_image, device)
 
     print(init_image.shape)
 
@@ -169,7 +169,6 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
         else:
             idx = 0
 
-    ae = ae.cuda()
     with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
         x = ae.decode(x)
 
