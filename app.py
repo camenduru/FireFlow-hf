@@ -38,9 +38,6 @@ def encode(init_image, torch_device, ae):
     init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
     init_image = init_image.unsqueeze(0) 
     init_image = init_image.to(torch_device)
-    print("!!!!!!!init_image!!!!!!",init_image.device)
-    print("!!!!!!!ae!!!!!!",next(ae.parameters()).device)
-    
     with torch.no_grad():
         init_image = ae.encode(init_image.to()).to(torch.bfloat16)
     return init_image
@@ -65,20 +62,22 @@ class FluxEditor:
         # init all components
         self.t5 = load_t5(self.device, max_length=256 if self.name == "flux-schnell" else 512)
         self.clip = load_clip(self.device)
-        self.model = load_flow_model(self.name, device='cuda')
-        self.ae = load_ae(self.name, device='cuda')
+        self.model = load_flow_model(self.name, device="cpu" if self.offload else self.device)
+        self.ae = load_ae(self.name, device="cpu" if self.offload else self.device)
         self.t5.eval()
         self.clip.eval()
         self.ae.eval()
         self.model.eval()
-        self.t5.cuda()
-        self.clip.cuda()
-        self.ae.cuda()
-        self.model.cuda()
+
+        if self.offload:
+            self.model.cpu()
+            torch.cuda.empty_cache()
+            self.ae.encoder.to(self.device)
     
     @torch.inference_mode()
     @spaces.GPU(duration=60)
     def edit(self, init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
+        torch.cuda.empty_cache()
         seed = None
         # if seed == -1:
         #     seed = None
@@ -112,6 +111,11 @@ class FluxEditor:
         t0 = time.perf_counter()
 
         opts.seed = None
+        if self.offload:
+            self.ae = self.ae.cpu()
+            torch.cuda.empty_cache()
+            self.t5, self.clip = self.t5.to(self.device), self.clip.to(self.device)
+
         #############inverse#######################
         info = {}
         info['feature'] = {}
@@ -125,6 +129,12 @@ class FluxEditor:
             inp_target = prepare(self.t5, self.clip, init_image, prompt=opts.target_prompt)
         timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(self.name != "flux-schnell"))
 
+        # offload TEs to CPU, load model to gpu
+        if self.offload:
+            self.t5, self.clip = self.t5.cpu(), self.clip.cpu()
+            torch.cuda.empty_cache()
+            self.model = self.model.to(self.device)
+
         # inversion initial noise
         with torch.no_grad():
             z, info = denoise(self.model, **inp, timesteps=timesteps, guidance=1, inverse=True, info=info)
@@ -135,6 +145,12 @@ class FluxEditor:
 
         # denoise initial noise
         x, _ = denoise(self.model, **inp_target, timesteps=timesteps, guidance=guidance, inverse=False, info=info)
+
+        # offload model, load autoencoder to gpu
+        if self.offload:
+            self.model.cpu()
+            torch.cuda.empty_cache()
+            self.ae.decoder.to(x.device)
 
         # decode latents to pixel space
         x = unpack(x.float(), opts.width, opts.height)
@@ -171,7 +187,7 @@ class FluxEditor:
         exif_data[ExifTags.Base.Model] = self.name
         if self.add_sampling_metadata:
             exif_data[ExifTags.Base.ImageDescription] = source_prompt
-        # img.save(fn, exif=exif_data, quality=95, subsampling=0)
+        img.save(fn, exif=exif_data, quality=95, subsampling=0)
 
         
         print("End Edit")
@@ -226,5 +242,5 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=41035)
     args = parser.parse_args()
 
-    demo = create_demo("flux-dev", "cuda", False)
+    demo = create_demo(args.name, args.device)
     demo.launch()
