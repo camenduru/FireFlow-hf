@@ -46,17 +46,9 @@ class SamplingOptions:
     guidance: float
     seed: int | None
 
-@torch.inference_mode()
-def encode(init_image, torch_device, ae):
-    init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
-    init_image = init_image.unsqueeze(0) 
-    init_image = init_image.to(torch_device)
-    ae = ae.cuda()
-    with torch.no_grad():
-        init_image = ae.encode(init_image.to()).to(torch.bfloat16)
-    return init_image
 
 
+@spaces.GPU(duration=30)
 class FluxEditor:
     def __init__(self, args):
         self.args = args
@@ -87,6 +79,16 @@ class FluxEditor:
             self.model.cpu()
             torch.cuda.empty_cache()
             self.ae.encoder.to(self.device)
+
+    @torch.inference_mode()
+    def encode(init_image, torch_device, ae):
+        init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
+        init_image = init_image.unsqueeze(0) 
+        init_image = init_image.to(torch_device)
+        ae = ae.cuda()
+        with torch.no_grad():
+            init_image = ae.encode(init_image.to()).to(torch.bfloat16)
+        return init_image
     
     @torch.inference_mode()
     def edit(self, init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
@@ -103,7 +105,7 @@ class FluxEditor:
         init_image = init_image[:new_h, :new_w, :]
 
         width, height = init_image.shape[0], init_image.shape[1]
-        init_image = encode(init_image, self.device, self.ae)
+        init_image = self.encode(init_image, self.device, self.ae)
 
         print(init_image.shape)
 
