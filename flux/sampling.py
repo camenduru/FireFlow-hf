@@ -30,10 +30,6 @@ def prepare(t5: HFEmbedder, clip: HFEmbedder, img: Tensor, prompt: str | list[st
         txt = repeat(txt, "1 ... -> bs ...", bs=bs)
     txt_ids = torch.zeros(bs, txt.shape[1], 3)
 
-    print("!!!!!!!!!!!!opts.source_prompt!!!!!!!!!!!!",len(prompt))
-    print("!!!!!!!!!!!!opts.source_prompt!!!!!!!!!!!!",prompt)
-    print("!!!!!!!!!!clip!!!!!!!!!",next(clip.parameters()).device)
-    print("!!!!!!!!!!!!clip model",clip)
     vec = clip(prompt)
     if vec.shape[0] == 1 and bs > 1:
         vec = repeat(vec, "1 ... -> bs ...", bs=bs)
