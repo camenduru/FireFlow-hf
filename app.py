@@ -201,7 +201,7 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
             with gr.Column():
                 with gr.Accordion("Advanced Options", open=True):
                     num_steps = gr.Slider(1, 30, 25, step=1, label="Number of steps")
-                    inject_step = gr.Slider(1, 15, 5, step=1, label="Number of inject steps")
+                    inject_step = gr.Slider(1, 15, 3, step=1, label="Number of inject steps")
                     guidance = gr.Slider(1.0, 10.0, 2, step=0.1, label="Guidance", interactive=not is_schnell)
                     # seed = gr.Textbox(0, label="Seed (-1 for random)", visible=False)
                     # add_sampling_metadata = gr.Checkbox(label="Add sampling parameters to metadata?", value=False)
