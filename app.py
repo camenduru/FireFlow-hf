@@ -48,7 +48,7 @@ class SamplingOptions:
 
 
 
-@spaces.GPU(duration=120)
+
 class FluxEditor:
     def __init__(self, args):
         self.args = args
@@ -89,7 +89,8 @@ class FluxEditor:
         with torch.no_grad():
             init_image = ae.encode(init_image.to()).to(torch.bfloat16)
         return init_image
-    
+
+    @spaces.GPU(duration=120)
     @torch.inference_mode()
     def edit(self, init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
         
