@@ -137,7 +137,8 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
             idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
         else:
             idx = 0
-
+            
+    device = torch.device("cuda")
     with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
         x = ae.decode(x)
 
