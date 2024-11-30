@@ -19,6 +19,8 @@ from transformers import pipeline
 
 from flux.sampling import denoise, get_schedule, prepare, unpack
 from flux.util import (configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5)
+from huggingface_hub import login
+login(token=os.getenv('Token'))
 
 @dataclass
 class SamplingOptions:
