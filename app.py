@@ -160,7 +160,7 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
     exif_data[ExifTags.Base.Model] = name
     if add_sampling_metadata:
         exif_data[ExifTags.Base.ImageDescription] = source_prompt
-    img.save(fn, exif=exif_data, quality=95, subsampling=0)
+    # img.save(fn, exif=exif_data, quality=95, subsampling=0)
 
     print("End Edit")
     return img
