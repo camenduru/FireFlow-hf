@@ -22,29 +22,8 @@ from flux.util import (configs, embed_watermark, load_ae, load_clip, load_flow_m
 from huggingface_hub import login
 login(token=os.getenv('Token'))
 
-
 import torch
 
-# device = torch.cuda.current_device()
-# print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
-# total_memory = torch.cuda.get_device_properties(device).total_memory
-# allocated_memory = torch.cuda.memory_allocated(device)
-# reserved_memory = torch.cuda.memory_reserved(device)
-
-# print(f"Total memory: {total_memory / 1024**2:.2f} MB")
-# print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
-# print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-name = 'flux-dev'
-ae = load_ae(name, device)
-t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
-clip = load_clip(device)
-model = load_flow_model(name, device=device)
-print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
-print("!!!!!!!!self.t5!!!!!!",next(t5.parameters()).device)
-print("!!!!!!!!self.clip!!!!!!",next(clip.parameters()).device)
-print("!!!!!!!!self.model!!!!!!",next(model.parameters()).device)
 
 @dataclass
 class SamplingOptions:
@@ -57,26 +36,28 @@ class SamplingOptions:
     guidance: float
     seed: int | None
 
+@torch.inference_mode()
+def encode(init_image, torch_device):
+    init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
+    init_image = init_image.unsqueeze(0) 
+    init_image = init_image.to(torch_device)
+    with torch.no_grad():
+        init_image = ae.encode(init_image.to()).to(torch.bfloat16)
+    return init_image
 
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+name = 'flux-dev'
+ae = load_ae(name, device)
+t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
+clip = load_clip(device)
+model = load_flow_model(name, device=device)
 offload = False
 name = "flux-dev"
 is_schnell = False
 feature_path = 'feature'
 output_dir = 'result'
 add_sampling_metadata = True
-
-
-
-@torch.inference_mode()
-def encode(init_image, torch_device):
-    init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
-    init_image = init_image.unsqueeze(0) 
-    init_image = init_image.to(torch_device)
-    ae = ae.cuda()
-    with torch.no_grad():
-        init_image = ae.encode(init_image.to()).to(torch.bfloat16)
-    return init_image
 
 @spaces.GPU(duration=120)
 @torch.inference_mode()
@@ -85,8 +66,6 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.cuda.empty_cache()
     seed = None
-        # if seed == -1:
-        #     seed = None
         
     shape = init_image.shape
 
@@ -97,8 +76,12 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
 
     width, height = init_image.shape[0], init_image.shape[1]
 
-    
-    init_image = encode(init_image, device)
+
+    init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
+    init_image = init_image.unsqueeze(0) 
+    init_image = init_image.to(device)
+    with torch.no_grad():
+        init_image = ae.encode(init_image.to()).to(torch.bfloat16)
 
     print(init_image.shape)
 
@@ -125,26 +108,12 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
     info['feature'] = {}
     info['inject_step'] = inject_step
 
-    print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
-    print("!!!!!!!!self.t5!!!!!!",next(t5.parameters()).device)
-    print("!!!!!!!!self.clip!!!!!!",next(clip.parameters()).device)
-    print("!!!!!!!!self.model!!!!!!",next(model.parameters()).device)
-
-    # device = torch.cuda.current_device()
-    # total_memory = torch.cuda.get_device_properties(device).total_memory
-    # allocated_memory = torch.cuda.memory_allocated(device)
-    # reserved_memory = torch.cuda.memory_reserved(device)
-        
-    # print(f"Total memory: {total_memory / 1024**2:.2f} MB")
-    # print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
-    # print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
-
     with torch.no_grad():
         inp = prepare(t5, clip, init_image, prompt=opts.source_prompt)
         inp_target = prepare(t5, clip, init_image, prompt=opts.target_prompt)
     timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
 
-        # inversion initial noise
+    # inversion initial noise
     with torch.no_grad():
         z, info = denoise(model, **inp, timesteps=timesteps, guidance=1, inverse=True, info=info)
         
