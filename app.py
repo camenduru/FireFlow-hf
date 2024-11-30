@@ -35,6 +35,7 @@ print(f"Total memory: {total_memory / 1024**2:.2f} MB")
 print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
 print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
 
+name = 'flux-dev'
 ae = load_ae(name, device)
 t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
 clip = load_clip(device)
