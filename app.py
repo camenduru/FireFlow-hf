@@ -81,7 +81,7 @@ class FluxEditor:
             self.ae.encoder.to(self.device)
 
     @torch.inference_mode()
-    def encode(init_image, torch_device, ae):
+    def encode(self, init_image, torch_device, ae):
         init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
         init_image = init_image.unsqueeze(0) 
         init_image = init_image.to(torch_device)
