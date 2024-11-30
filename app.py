@@ -63,7 +63,7 @@ class FluxEditor:
         self.t5 = load_t5(self.device, max_length=256 if self.name == "flux-schnell" else 512)
         self.clip = load_clip(self.device)
         self.model = load_flow_model(self.name, device='cuda')
-        self.ae = load_ae(self.name, device='cuda' if self.offload else self.device)
+        self.ae = load_ae(self.name, device='cuda')
         self.t5.eval()
         self.clip.eval()
         self.ae.eval()
