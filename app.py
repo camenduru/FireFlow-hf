@@ -38,8 +38,9 @@ def encode(init_image, torch_device, ae):
     init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
     init_image = init_image.unsqueeze(0) 
     init_image = init_image.to(torch_device)
-    print("!!!!!!!init_image!!!!!!!",init_image.device)
-    print("!!!!!!!ae!!!!!!!",ae.device)
+    print("!!!!!!!init_image!!!!!!",init_image.device)
+    print("!!!!!!!ae!!!!!!",next(ae.parameters()).device)
+    
     with torch.no_grad():
         init_image = ae.encode(init_image.to()).to(torch.bfloat16)
     return init_image
@@ -70,6 +71,10 @@ class FluxEditor:
         self.clip.eval()
         self.ae.eval()
         self.model.eval()
+        self.t5.cuda()
+        self.clip.cuda()
+        self.ae.cuda()
+        self.model.cuda()
     
     @torch.inference_mode()
     @spaces.GPU(duration=180)
