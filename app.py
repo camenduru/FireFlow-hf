@@ -38,6 +38,7 @@ def encode(init_image, torch_device, ae):
     init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
     init_image = init_image.unsqueeze(0) 
     init_image = init_image.to(torch_device)
+    ae = ae.cuda()
     with torch.no_grad():
         init_image = ae.encode(init_image.to()).to(torch.bfloat16)
     return init_image
@@ -125,7 +126,8 @@ class FluxEditor:
             os.mkdir(self.feature_path)
 
         with torch.no_grad():
-            inp = prepare(self.t5, self.clip, init_image, prompt=opts.source_prompt)
+            self.t5, self.clip = self.t5.cuda(), self.clip.cuda()
+            inp = prepare(self.t5.cuda(), self.clip, init_image, prompt=opts.source_prompt)
             inp_target = prepare(self.t5, self.clip, init_image, prompt=opts.target_prompt)
         timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(self.name != "flux-schnell"))
 
@@ -137,14 +139,14 @@ class FluxEditor:
 
         # inversion initial noise
         with torch.no_grad():
-            z, info = denoise(self.model, **inp, timesteps=timesteps, guidance=1, inverse=True, info=info)
+            z, info = denoise(self.model.cuda(), **inp, timesteps=timesteps, guidance=1, inverse=True, info=info)
         
         inp_target["img"] = z
 
         timesteps = get_schedule(opts.num_steps, inp_target["img"].shape[1], shift=(self.name != "flux-schnell"))
 
         # denoise initial noise
-        x, _ = denoise(self.model, **inp_target, timesteps=timesteps, guidance=guidance, inverse=False, info=info)
+        x, _ = denoise(self.model.cuda(), **inp_target, timesteps=timesteps, guidance=guidance, inverse=False, info=info)
 
         # offload model, load autoencoder to gpu
         if self.offload:
@@ -166,6 +168,7 @@ class FluxEditor:
             else:
                 idx = 0
 
+        ae = ae.cuda()
         with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16):
             x = self.ae.decode(x)
 
