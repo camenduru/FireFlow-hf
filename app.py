@@ -9,7 +9,7 @@ import argparse
 from einops import rearrange
 from fire import Fire
 from PIL import ExifTags, Image
-
+import spaces
 
 import torch
 import torch.nn.functional as F
@@ -75,6 +75,7 @@ class FluxEditor:
             self.ae.encoder.to(self.device)
     
     @torch.inference_mode()
+    @spaces.GPU(duration=30)
     def edit(self, init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
         torch.cuda.empty_cache()
         seed = None
