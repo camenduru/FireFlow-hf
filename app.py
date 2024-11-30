@@ -26,6 +26,7 @@ login(token=os.getenv('Token'))
 import torch
 
 device = torch.cuda.current_device()
+print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
 total_memory = torch.cuda.get_device_properties(device).total_memory
 allocated_memory = torch.cuda.memory_allocated(device)
 reserved_memory = torch.cuda.memory_reserved(device)
@@ -34,6 +35,14 @@ print(f"Total memory: {total_memory / 1024**2:.2f} MB")
 print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
 print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
 
+ae = load_ae(name, device)
+t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
+clip = load_clip(device)
+model = load_flow_model(name, device=device)
+print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
+print("!!!!!!!!self.t5!!!!!!",next(t5.parameters()).device)
+print("!!!!!!!!self.clip!!!!!!",next(clip.parameters()).device)
+print("!!!!!!!!self.model!!!!!!",next(model.parameters()).device)
 
 @dataclass
 class SamplingOptions:
@@ -54,37 +63,8 @@ is_schnell = False
 feature_path = 'feature'
 output_dir = 'result'
 add_sampling_metadata = True
-# class FluxEditor:
-#     def __init__(self, args):
-#         self.args = args
-#         self.device = torch.device(args.device)
-#         self.offload = args.offload
-#         self.name = args.name
-#         self.is_schnell = args.name == "flux-schnell"
 
-#         self.feature_path = 'feature'
-#         self.output_dir = 'result'
-#         self.add_sampling_metadata = True
 
-#         if self.name not in configs:
-#             available = ", ".join(configs.keys())
-#             raise ValueError(f"Got unknown model name: {name}, chose from {available}")
-
-#         # init all components
-        
-
-#         if self.offload:
-#             self.model.cpu()
-#             torch.cuda.empty_cache()
-#             self.ae.encoder.to(self.device)
-ae = load_ae(name, device="cpu" if offload else device)
-t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
-clip = load_clip(device)
-model = load_flow_model(name, device="cpu" if offload else device)
-print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
-print("!!!!!!!!self.t5!!!!!!",next(t5.parameters()).device)
-print("!!!!!!!!self.clip!!!!!!",next(clip.parameters()).device)
-print("!!!!!!!!self.model!!!!!!",next(model.parameters()).device)
 
 @torch.inference_mode()
 def encode(init_image, torch_device, ae):
