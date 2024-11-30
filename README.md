@@ -4,7 +4,7 @@ colorFrom: purple
 colorTo: red
 sdk: gradio
 sdk_version: 5.0.1
-app_file: src/gradi_demo.py
+app_file: app.py
 pinned: false
 license: other
 license_name: flux-1-dev-non-commercial-license
