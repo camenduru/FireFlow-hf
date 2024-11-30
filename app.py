@@ -38,8 +38,8 @@ def encode(init_image, torch_device, ae):
     init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
     init_image = init_image.unsqueeze(0) 
     init_image = init_image.to(torch_device)
-    print("!!!!!!!init_image!!!!!!!",init_image.shape)
-    print("!!!!!!!ae!!!!!!!",ae.shape)
+    print("!!!!!!!init_image!!!!!!!",init_image.device)
+    print("!!!!!!!ae!!!!!!!",ae.device)
     with torch.no_grad():
         init_image = ae.encode(init_image.to()).to(torch.bfloat16)
     return init_image
