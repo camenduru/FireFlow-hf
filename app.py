@@ -126,8 +126,7 @@ class FluxEditor:
             os.mkdir(self.feature_path)
 
         with torch.no_grad():
-            self.t5, self.clip = self.t5.cuda(), self.clip.cuda()
-            inp = prepare(self.t5.cuda(), self.clip, init_image, prompt=opts.source_prompt)
+            inp = prepare(self.t5, self.clip, init_image, prompt=opts.source_prompt)
             inp_target = prepare(self.t5, self.clip, init_image, prompt=opts.target_prompt)
         timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(self.name != "flux-schnell"))
 
@@ -139,14 +138,14 @@ class FluxEditor:
 
         # inversion initial noise
         with torch.no_grad():
-            z, info = denoise(self.model.cuda(), **inp, timesteps=timesteps, guidance=1, inverse=True, info=info)
+            z, info = denoise(self.model, **inp, timesteps=timesteps, guidance=1, inverse=True, info=info)
         
         inp_target["img"] = z
 
         timesteps = get_schedule(opts.num_steps, inp_target["img"].shape[1], shift=(self.name != "flux-schnell"))
 
         # denoise initial noise
-        x, _ = denoise(self.model.cuda(), **inp_target, timesteps=timesteps, guidance=guidance, inverse=False, info=info)
+        x, _ = denoise(self.model, **inp_target, timesteps=timesteps, guidance=guidance, inverse=False, info=info)
 
         # offload model, load autoencoder to gpu
         if self.offload:
@@ -198,7 +197,7 @@ class FluxEditor:
 
 
 
-def create_demo(model_name: str, device: str = "cuda" if torch.cuda.is_available() else "cpu", offload: bool = False):
+def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_available() else "cpu", offload: bool = False):
     editor = FluxEditor(args)
     is_schnell = model_name == "flux-schnell"
 
@@ -238,7 +237,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Flux")
     parser.add_argument("--name", type=str, default="flux-dev", choices=list(configs.keys()), help="Model name")
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use")
+    parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu", help="Device to use")
     parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
     parser.add_argument("--share", action="store_true", help="Create a public link to your demo")
 
