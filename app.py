@@ -66,14 +66,7 @@ class FluxEditor:
             raise ValueError(f"Got unknown model name: {name}, chose from {available}")
 
         # init all components
-        self.t5 = load_t5(self.device, max_length=256 if self.name == "flux-schnell" else 512)
-        self.clip = load_clip(self.device)
-        self.model = load_flow_model(self.name, device="cpu" if self.offload else self.device)
-        self.ae = load_ae(self.name, device="cpu" if self.offload else self.device)
-        self.t5.eval()
-        self.clip.eval()
-        self.ae.eval()
-        self.model.eval()
+        
 
         if self.offload:
             self.model.cpu()
@@ -107,6 +100,8 @@ class FluxEditor:
         init_image = init_image[:new_h, :new_w, :]
 
         width, height = init_image.shape[0], init_image.shape[1]
+
+        self.ae = load_ae(self.name, device="cpu" if self.offload else self.device)
         init_image = self.encode(init_image, self.device, self.ae)
 
         print(init_image.shape)
@@ -140,22 +135,17 @@ class FluxEditor:
 
         if not os.path.exists(self.feature_path):
             os.mkdir(self.feature_path)
+
+
+        print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
+        self.t5 = load_t5(self.device, max_length=256 if self.name == "flux-schnell" else 512)
+        self.clip = load_clip(self.device)
+        self.model = load_flow_model(self.name, device="cpu" if self.offload else self.device)
+        
         
         print("!!!!!!!!self.t5!!!!!!",next(self.t5.parameters()).device)
         print("!!!!!!!!self.clip!!!!!!",next(self.clip.parameters()).device)
         print("!!!!!!!!self.model!!!!!!",next(self.model.parameters()).device)
-
-        device = torch.cuda.current_device()
-        total_memory = torch.cuda.get_device_properties(device).total_memory
-        allocated_memory = torch.cuda.memory_allocated(device)
-        reserved_memory = torch.cuda.memory_reserved(device)
-        
-        print(f"Total memory: {total_memory / 1024**2:.2f} MB")
-        print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
-        print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
-        self.t5 = self.t5.cuda()
-        self.clip = self.clip.cuda()
-        self.model = self.model.cuda()
 
         device = torch.cuda.current_device()
         total_memory = torch.cuda.get_device_properties(device).total_memory
