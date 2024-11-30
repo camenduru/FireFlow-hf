@@ -35,12 +35,12 @@ import torch
 # print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
 # print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
 
-global device = "cuda" if torch.cuda.is_available() else "cpu"
-global name = 'flux-dev'
-global ae = load_ae(name, device)
-global t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
-global clip = load_clip(device)
-global model = load_flow_model(name, device=device)
+device = "cuda" if torch.cuda.is_available() else "cpu"
+name = 'flux-dev'
+ae = load_ae(name, device)
+t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
+clip = load_clip(device)
+model = load_flow_model(name, device=device)
 print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
 print("!!!!!!!!self.t5!!!!!!",next(t5.parameters()).device)
 print("!!!!!!!!self.clip!!!!!!",next(clip.parameters()).device)
@@ -59,12 +59,12 @@ class SamplingOptions:
 
 
 
-global offload = False
-global name = "flux-dev"
-global is_schnell = False
-global feature_path = 'feature'
-global output_dir = 'result'
-global add_sampling_metadata = True
+offload = False
+name = "flux-dev"
+is_schnell = False
+feature_path = 'feature'
+output_dir = 'result'
+add_sampling_metadata = True
 
 
 
