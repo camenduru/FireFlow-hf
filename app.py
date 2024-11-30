@@ -86,7 +86,8 @@ class FluxEditor:
     @spaces.GPU(duration=120)
     @torch.inference_mode()
     def edit(self, init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
-        
+
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         torch.cuda.empty_cache()
         seed = None
         # if seed == -1:
@@ -137,7 +138,7 @@ class FluxEditor:
             os.mkdir(self.feature_path)
 
 
-        print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",device)
+        print("!!!!!!!!!!!!device!!!!!!!!!!!!!!",self.device)
         self.t5 = load_t5(self.device, max_length=256 if self.name == "flux-schnell" else 512)
         self.clip = load_clip(self.device)
         self.model = load_flow_model(self.name, device="cpu" if self.offload else self.device)
