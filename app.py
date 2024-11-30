@@ -89,7 +89,6 @@ class FluxEditor:
             self.ae.encoder.to(self.device)
     
     @torch.inference_mode()
-    @spaces.GPU(duration=150)
     def edit(self, init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
         torch.cuda.empty_cache()
         seed = None
@@ -137,6 +136,32 @@ class FluxEditor:
 
         if not os.path.exists(self.feature_path):
             os.mkdir(self.feature_path)
+        
+        print("!!!!!!!!self.t5!!!!!!",next(self.t5.parameters()).device)
+        print("!!!!!!!!self.clip!!!!!!",next(self.clip.parameters()).device)
+        print("!!!!!!!!self.model!!!!!!",next(self.model.parameters()).device)
+
+        device = torch.cuda.current_device()
+        total_memory = torch.cuda.get_device_properties(device).total_memory
+        allocated_memory = torch.cuda.memory_allocated(device)
+        reserved_memory = torch.cuda.memory_reserved(device)
+        
+        print(f"Total memory: {total_memory / 1024**2:.2f} MB")
+        print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
+        print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
+        self.t5 = self.t5.cuda()
+        self.clip = self.clip.cuda()
+        self.model = self.model.cuda()
+
+        device = torch.cuda.current_device()
+        total_memory = torch.cuda.get_device_properties(device).total_memory
+        allocated_memory = torch.cuda.memory_allocated(device)
+        reserved_memory = torch.cuda.memory_reserved(device)
+        
+        print(f"Total memory: {total_memory / 1024**2:.2f} MB")
+        print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
+        print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
+
 
         with torch.no_grad():
             inp = prepare(self.t5, self.clip, init_image, prompt=opts.source_prompt)
