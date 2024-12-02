@@ -175,24 +175,24 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
         
         with gr.Row():
             with gr.Column():
-                # source_prompt = gr.Textbox(label="Source Prompt", value="")
-                # target_prompt = gr.Textbox(label="Target Prompt", value="")
-                source_prompt = gr.Text(
-                    label="Source Prompt",
-                    show_label=False,
-                    max_lines=1,
-                    placeholder="Enter your source prompt",
-                    container=False,
-                    value="" 
-                )
-                target_prompt = gr.Text(
-                    label="Target Prompt",
-                    show_label=False,
-                    max_lines=1,
-                    placeholder="Enter your target prompt",
-                    container=False,
-                    value="" 
-                )
+                source_prompt = gr.Textbox(label="Source Prompt", value="")
+                target_prompt = gr.Textbox(label="Target Prompt", value="")
+                # source_prompt = gr.Text(
+                #     label="Source Prompt",
+                #     show_label=False,
+                #     max_lines=1,
+                #     placeholder="Enter your source prompt",
+                #     container=False,
+                #     value="" 
+                # )
+                # target_prompt = gr.Text(
+                #     label="Target Prompt",
+                #     show_label=False,
+                #     max_lines=1,
+                #     placeholder="Enter your target prompt",
+                #     container=False,
+                #     value="" 
+                # )
                 init_image = gr.Image(label="Input Image", visible=True)
                 
                 
