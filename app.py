@@ -179,7 +179,7 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
         ❗️❗️❗️[<b>Important</b>] Editing steps:<br>
         1️⃣ Upload images you want to edit (The resolution is expected be less than 1360*768, or the memory of GPU may be not enough.) <br>
         2️⃣ Enter the source prompt, which describes the content of the image you unload. The source prompt is not mandatory; you can also leave it to null. <br>
-        3️⃣ Enter the target prompt which describes the content of the expected images after editing. <br>
+        3️⃣ Enter the target prompt which describes the expected content of the edited image. <br>
         4️⃣ Click the <b>Generate</b> button to start editing. <br>
         5️⃣ We suggest to adjust the value of **feature sharing steps** for better results.<br>
         """
@@ -195,7 +195,7 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
         
         gr.HTML(title)
         gr.Markdown(description)
-        gr.Markdown(article)
+        gr.HTML(article)
         
         with gr.Row():
             with gr.Column():
