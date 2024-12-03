@@ -169,25 +169,31 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
 
 def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_available() else "cpu", offload: bool = False):
     is_schnell = model_name == "flux-schnell"
-
-    with gr.Blocks() as demo:
-        # gr.Markdown(f"# Official Demo for Taming Rectified Flow for Inversion and Editing")
-        title = r"""
+    title = r"""
         <h1 align="center">Taming Rectified Flow for Inversion and Editing</h1>
         """
         
-        description = r"""
+    description = r"""
         <b>Official 🤗 Gradio demo</b> for <a href='https://github.com/wangjiangshan0725/RF-Solver-Edit' target='_blank'><b>Taming Rectified Flow for Inversion and Editing</b></a>.<br>
     
         ❗️❗️❗️[<b>Important</b>] Editing steps:<br>
-        1️⃣ Upload images you want to edit (The resolution is expected be less than 1360*768, or the memory of GPU may be not enough.) \n
-        2️⃣ Enter the source prompt, which describes the content of the image you unload. The source prompt is not mandatory; you can also leave it to null. \n
-        3️⃣ Enter the target prompt which describes the content of the expected images after editing. \n
-        4️⃣ Click the <b>Generate</b> button to start editing. \n
+        1️⃣ Upload images you want to edit (The resolution is expected be less than 1360*768, or the memory of GPU may be not enough.) 
+        2️⃣ Enter the source prompt, which describes the content of the image you unload. The source prompt is not mandatory; you can also leave it to null. 
+        3️⃣ Enter the target prompt which describes the content of the expected images after editing. 
+        4️⃣ Click the <b>Generate</b> button to start editing. 
         5️⃣ We suggest to adjust the value of **feature sharing steps** for better results.
         """
+    article = r"""
+    If our work is helpful, please help to ⭐ the <a href='https://github.com/wangjiangshan0725/RF-Solver-Edit' target='_blank'>Github Repo</a>. Thanks! 
+    [![GitHub Stars](https://img.shields.io/github/stars/wangjiangshan0725/RF-Solver-Edit?style=social)](https://github.com/wangjiangshan0725/RF-Solver-Edit)
+    ---
+    """
+    with gr.Blocks() as demo:
+        # gr.Markdown(f"# Official Demo for Taming Rectified Flow for Inversion and Editing")
+        
         gr.Markdown(title)
         gr.Markdown(description)
+        
         with gr.Row():
             with gr.Column():
                 source_prompt = gr.Textbox(label="Source Prompt", value="")
@@ -228,6 +234,7 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
             inputs=[init_image, source_prompt, target_prompt, num_steps, inject_step, guidance],
             outputs=[output_image]
         )
+        gr.Markdown(article)
 
 
     return demo
