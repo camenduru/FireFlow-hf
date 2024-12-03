@@ -170,7 +170,7 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
 def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_available() else "cpu", offload: bool = False):
     is_schnell = model_name == "flux-schnell"
     title = r"""
-        <h1 align="center">Taming Rectified Flow for Inversion and Editing</h1>
+        <h1 align="center">🪄 Taming Rectified Flow for Inversion and Editing</h1>
         """
         
     description = r"""
@@ -193,7 +193,7 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
     with gr.Blocks(css=css) as demo:
         # gr.Markdown(f"# Official Demo for Taming Rectified Flow for Inversion and Editing")
         
-        gr.Markdown(title)
+        gr.HTML(title)
         gr.Markdown(description)
         gr.Markdown(article)
         
