@@ -180,10 +180,10 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
         <b>Official 🤗 Gradio demo</b> for <a href='https://github.com/wangjiangshan0725/RF-Solver-Edit' target='_blank'><b>Taming Rectified Flow for Inversion and Editing</b></a>.<br>
     
         ❗️❗️❗️[<b>Important</b>] Editing steps:<br>
-        1️⃣ Upload images you want to edit (The resolution is expected be less than 1360*768, or the memory of GPU may be not enough.)
-        2️⃣ Enter the source prompt, which describes the content of the image you unload. The source prompt is not mandatory; you can also leave it to null.
-        3️⃣ Enter the target prompt which describes the content of the expected images after editing.
-        4️⃣ Click the <b>Generate</b> button to start customizing.
+        1️⃣ Upload images you want to edit (The resolution is expected be less than 1360*768, or the memory of GPU may be not enough.) \n
+        2️⃣ Enter the source prompt, which describes the content of the image you unload. The source prompt is not mandatory; you can also leave it to null. \n
+        3️⃣ Enter the target prompt which describes the content of the expected images after editing. \n
+        4️⃣ Click the <b>Generate</b> button to start editing. \n
         5️⃣ We suggest to adjust the value of **feature sharing steps** for better results.
         """
         gr.Markdown(title)
