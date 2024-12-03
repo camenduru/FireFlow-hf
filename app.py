@@ -171,8 +171,23 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
     is_schnell = model_name == "flux-schnell"
 
     with gr.Blocks() as demo:
-        gr.Markdown(f"# RF-Edit Demo (FLUX for image editing)")
+        # gr.Markdown(f"# Official Demo for Taming Rectified Flow for Inversion and Editing")
+        title = r"""
+        <h1 align="center">Taming Rectified Flow for Inversion and Editing</h1>
+        """
         
+        description = r"""
+        <b>Official 🤗 Gradio demo</b> for <a href='https://github.com/wangjiangshan0725/RF-Solver-Edit' target='_blank'><b>Taming Rectified Flow for Inversion and Editing</b></a>.<br>
+    
+        ❗️❗️❗️[<b>Important</b>] Editing steps:<br>
+        1️⃣ Upload images you want to edit (The resolution is expected be less than 1360*768, or the memory of GPU may be not enough.)
+        2️⃣ Enter the source prompt, which describes the content of the image you unload. The source prompt is not mandatory; you can also leave it to null.
+        3️⃣ Enter the target prompt which describes the content of the expected images after editing.
+        4️⃣ Click the <b>Generate</b> button to start customizing.
+        5️⃣ We suggest to adjust the value of **feature sharing steps** for better results.
+        """
+        gr.Markdown(title)
+        gr.Markdown(description)
         with gr.Row():
             with gr.Column():
                 source_prompt = gr.Textbox(label="Source Prompt", value="")
@@ -200,8 +215,8 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
             
             with gr.Column():
                 with gr.Accordion("Advanced Options", open=True):
-                    num_steps = gr.Slider(1, 30, 25, step=1, label="Number of steps")
-                    inject_step = gr.Slider(1, 15, 3, step=1, label="Number of inject steps")
+                    num_steps = gr.Slider(1, 30, 25, step=1, label="Total timesteps")
+                    inject_step = gr.Slider(1, 15, 3, step=1, label="Feature sharing steps")
                     guidance = gr.Slider(1.0, 10.0, 2, step=0.1, label="Guidance", interactive=not is_schnell)
                     # seed = gr.Textbox(0, label="Seed (-1 for random)", visible=False)
                     # add_sampling_metadata = gr.Checkbox(label="Add sampling parameters to metadata?", value=False)
