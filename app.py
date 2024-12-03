@@ -185,8 +185,12 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
         """
     article = r"""
     If our work is helpful, please help to ⭐ the <a href='https://github.com/wangjiangshan0725/RF-Solver-Edit' target='_blank'>Github Repo</a>. Thanks! 
+    """
+
+    badge = r"""
     [![GitHub Stars](https://img.shields.io/github/stars/wangjiangshan0725/RF-Solver-Edit?style=social)](https://github.com/wangjiangshan0725/RF-Solver-Edit)
     """
+    
     css = '''
     .gradio-container {width: 85% !important}
     '''
@@ -195,7 +199,8 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
         
         gr.HTML(title)
         gr.Markdown(description)
-        gr.HTML(article)
+        gr.Markdown(article)
+        gr.Markdown(badge)
         
         with gr.Row():
             with gr.Column():
