@@ -187,7 +187,10 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
     If our work is helpful, please help to ⭐ the <a href='https://github.com/wangjiangshan0725/RF-Solver-Edit' target='_blank'>Github Repo</a>. Thanks! 
     [![GitHub Stars](https://img.shields.io/github/stars/wangjiangshan0725/RF-Solver-Edit?style=social)](https://github.com/wangjiangshan0725/RF-Solver-Edit)
     """
-    with gr.Blocks() as demo:
+    css = '''
+    .gradio-container {width: 85% !important}
+    '''
+    with gr.Blocks(css=css) as demo:
         # gr.Markdown(f"# Official Demo for Taming Rectified Flow for Inversion and Editing")
         
         gr.Markdown(title)
