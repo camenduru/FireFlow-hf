@@ -46,7 +46,7 @@ def encode(init_image, torch_device):
     return init_image
 
 torch_device = "cuda" if torch.cuda.is_available() else "cpu"
-offload = True
+offload = False
 device = "cuda" if torch.cuda.is_available() else "cpu"
 name = 'flux-dev'
 ae = load_ae(name, device="cpu" if offload else torch_device)
