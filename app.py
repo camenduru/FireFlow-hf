@@ -288,7 +288,11 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
                 num_steps, 
                 inject_step, 
                 guidance
-            ]
+            ],
+            outputs=[output_image],
+            fn=edit,
+            cache_mode='eager',
+            cache_examples=True      # Enable caching
         )
         
     return demo
