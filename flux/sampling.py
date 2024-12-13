@@ -97,6 +97,7 @@ def denoise(
     guidance_vec = torch.full((img.shape[0],), guidance, device=img.device, dtype=img.dtype)
 
     step_list = []
+    next_step_velocity = None
     for i, (t_curr, t_prev) in enumerate(zip(timesteps[:-1], timesteps[1:])):
         t_vec = torch.full((img.shape[0],), t_curr, dtype=img.dtype, device=img.device)
         info['t'] = t_prev if inverse else t_curr
@@ -104,20 +105,23 @@ def denoise(
         info['second_order'] = False
         info['inject'] = inject_list[i]
 
-        pred, info = model(
-            img=img,
-            img_ids=img_ids,
-            txt=txt,
-            txt_ids=txt_ids,
-            y=vec,
-            timesteps=t_vec,
-            guidance=guidance_vec,
-            info=info
-        )
-
+        if next_step_velocity is None:
+            pred, info = model(
+                img=img,
+                img_ids=img_ids,
+                txt=txt,
+                txt_ids=txt_ids,
+                y=vec,
+                timesteps=t_vec,
+                guidance=guidance_vec,
+                info=info
+            )
+        else:
+            pred = next_step_velocity
+        
         img_mid = img + (t_prev - t_curr) / 2 * pred
 
-        t_vec_mid = torch.full((img.shape[0],), (t_curr + (t_prev - t_curr) / 2), dtype=img.dtype, device=img.device)
+        t_vec_mid = torch.full((img.shape[0],), t_curr + (t_prev - t_curr) / 2, dtype=img.dtype, device=img.device)
         info['second_order'] = True
         pred_mid, info = model(
             img=img_mid,
@@ -129,9 +133,9 @@ def denoise(
             guidance=guidance_vec,
             info=info
         )
-
-        first_order = (pred_mid - pred) / ((t_prev - t_curr) / 2)
-        img = img + (t_prev - t_curr) * pred + 0.5 * (t_prev - t_curr) ** 2 * first_order
+        next_step_velocity = pred_mid
+        
+        img = img + (t_prev - t_curr) * pred_mid
 
     return img, info
 

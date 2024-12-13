@@ -45,24 +45,26 @@ def encode(init_image, torch_device):
         init_image = ae.encode(init_image.to()).to(torch.bfloat16)
     return init_image
 
-
+torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+offload = True
 device = "cuda" if torch.cuda.is_available() else "cpu"
 name = 'flux-dev'
-ae = load_ae(name, device)
+ae = load_ae(name, device="cpu" if offload else torch_device)
 t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
 clip = load_clip(device)
-model = load_flow_model(name, device=device)
-offload = False
-name = "flux-dev"
+model = load_flow_model(name, device="cpu" if offload else torch_device)
+if offload:
+    model.cpu()
+    torch.cuda.empty_cache()
+    ae.encoder.to(torch_device)
 is_schnell = False
-feature_path = 'feature'
 output_dir = 'result'
 add_sampling_metadata = True
 
 @spaces.GPU(duration=120)
 @torch.inference_mode()
-def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guidance, seed):
-
+def edit(init_image, source_prompt, target_prompt, editing_strategy, num_steps, inject_step, guidance, seed):
+    global ae, t5, clip, model, name, is_schnell, output_dir, add_sampling_metadata
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.cuda.empty_cache()
     seed = None
@@ -76,14 +78,11 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
 
     width, height = init_image.shape[0], init_image.shape[1]
 
-
     init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
     init_image = init_image.unsqueeze(0) 
     init_image = init_image.to(device)
     with torch.no_grad():
         init_image = ae.encode(init_image.to()).to(torch.bfloat16)
-
-    print(init_image.shape)
 
     rng = torch.Generator(device="cpu")
     opts = SamplingOptions(
@@ -97,6 +96,11 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
         )
     if opts.seed is None:
         opts.seed = torch.Generator(device="cpu").seed()
+    
+    if offload:
+        ae = ae.cpu()
+        torch.cuda.empty_cache()
+        t5, clip = t5.to(torch_device), clip.to(torch_device)
         
     print(f"Generating with seed {opts.seed}:\n{opts.source_prompt}")
     t0 = time.perf_counter()
@@ -106,12 +110,23 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
     #############inverse#######################
     info = {}
     info['feature'] = {}
-    info['inject_step'] = inject_step
+    info['inject_step'] = min(inject_step, num_steps)
+    info['reuse_v']= False
+    info['editing_strategy']= " ".join(editing_strategy)
+    info['start_layer_index'] = 20
+    info['end_layer_index'] = 37
+    qkv_ratio = '1.0,1.0,1.0'
+    info['qkv_ratio'] = list(map(float, qkv_ratio.split(',')))
 
     with torch.no_grad():
         inp = prepare(t5, clip, init_image, prompt=opts.source_prompt)
         inp_target = prepare(t5, clip, init_image, prompt=opts.target_prompt)
     timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(name != "flux-schnell"))
+    
+    if offload:
+        t5, clip = t5.cpu(), clip.cpu()
+        torch.cuda.empty_cache()
+        model = model.to(torch_device)
 
     # inversion initial noise
     with torch.no_grad():
@@ -137,6 +152,11 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
             idx = max(int(fn.split("_")[-1].split(".")[0]) for fn in fns) + 1
         else:
             idx = 0
+    
+    if offload:
+        model.cpu()
+        torch.cuda.empty_cache()
+        ae.decoder.to(x.device)
             
     device = torch.device("cuda")
     with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
@@ -166,97 +186,87 @@ def edit(init_image, source_prompt, target_prompt, num_steps, inject_step, guida
     return img
 
 
-
-def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_available() else "cpu", offload: bool = False):
+def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_available() else "cpu"):
     is_schnell = model_name == "flux-schnell"
     title = r"""
-        <h1 align="center">🪄 Taming Rectified Flow for Inversion and Editing</h1>
+        <h1 align="center">🔥FireFlow: Fast Inversion of Rectified Flow for Image Semantic Editing</h1>
         """
-        
     description = r"""
-        <b>Official 🤗 Gradio demo</b> for <a href='https://github.com/wangjiangshan0725/RF-Solver-Edit' target='_blank'><b>Taming Rectified Flow for Inversion and Editing</b></a>.<br>
-    
-        ❗️❗️❗️[<b>Important</b>] Editing steps:<br>
-        1️⃣ Upload images you want to edit (The resolution is expected be less than 1360*768, or the memory of GPU may be not enough.) <br>
-        2️⃣ Enter the source prompt, which describes the content of the image you unload. The source prompt is not mandatory; you can also leave it to null. <br>
-        3️⃣ Enter the target prompt which describes the expected content of the edited image. <br>
-        4️⃣ Click the <b>Generate</b> button to start editing. <br>
-        5️⃣ We suggest to adjust the value of **feature sharing steps** for better results.<br>
-        """
+        <b>Official 🤗 Gradio Demo</b> for <a href='https://github.com/HolmesShuan/FireFlow-Fast-Inversion-of-Rectified-Flow-for-Image-Semantic-Editing' target='_blank'><b>🔥FireFlow: Fast Inversion of Rectified Flow for Image Semantic Editing</b></a>.<br>
+    """
     article = r"""
-    If our work is helpful, please help to ⭐ the <a href='https://github.com/wangjiangshan0725/RF-Solver-Edit' target='_blank'>Github Repo</a>. Thanks! 
+    If you find our work helpful, we would greatly appreciate it if you could ⭐ our <a href='https://github.com/HolmesShuan/FireFlow-Fast-Inversion-of-Rectified-Flow-for-Image-Semantic-Editing' target='_blank'>GitHub repository</a>. Thank you for your support!
     """
-
-    badge = r"""
-    [![GitHub Stars](https://img.shields.io/github/stars/wangjiangshan0725/RF-Solver-Edit?style=social)](https://github.com/wangjiangshan0725/RF-Solver-Edit)
-    """
-    
     css = '''
     .gradio-container {width: 85% !important}
     '''
     with gr.Blocks(css=css) as demo:
-        # gr.Markdown(f"# Official Demo for Taming Rectified Flow for Inversion and Editing")
-        
+        # Add a title, description, and additional information
         gr.HTML(title)
         gr.Markdown(description)
         gr.Markdown(article)
-        gr.Markdown(badge)
         
+        # Layout: Two columns
         with gr.Row():
+            # Left Column: Inputs
             with gr.Column():
-                source_prompt = gr.Textbox(label="Source Prompt", value="")
-                target_prompt = gr.Textbox(label="Target Prompt", value="")
-                # source_prompt = gr.Text(
-                #     label="Source Prompt",
-                #     show_label=False,
-                #     max_lines=1,
-                #     placeholder="Enter your source prompt",
-                #     container=False,
-                #     value="" 
-                # )
-                # target_prompt = gr.Text(
-                #     label="Target Prompt",
-                #     show_label=False,
-                #     max_lines=1,
-                #     placeholder="Enter your target prompt",
-                #     container=False,
-                #     value="" 
-                # )
                 init_image = gr.Image(label="Input Image", visible=True)
-                
-                
+                source_prompt = gr.Textbox(label="Source Prompt", value="", placeholder="(Optional) Describe the content of the uploaded image.")
+                target_prompt = gr.Textbox(label="Target Prompt", value="", placeholder="(Required) Describe the desired content of the edited image.")
+                # CheckboxGroup for editing strategies
+                editing_strategy = gr.CheckboxGroup(
+                    label="Editing Technique",
+                    choices=['replace_v', 'add_q', 'add_k'],
+                    value=['replace_v'],  # Default: none selected
+                    interactive=True
+                )
                 generate_btn = gr.Button("Generate")
             
+            # Right Column: Advanced options and output
             with gr.Column():
                 with gr.Accordion("Advanced Options", open=True):
-                    num_steps = gr.Slider(1, 30, 25, step=1, label="Total timesteps")
-                    inject_step = gr.Slider(1, 15, 3, step=1, label="Feature sharing steps")
-                    guidance = gr.Slider(1.0, 10.0, 2, step=0.1, label="Guidance", interactive=not is_schnell)
-                    # seed = gr.Textbox(0, label="Seed (-1 for random)", visible=False)
-                    # add_sampling_metadata = gr.Checkbox(label="Add sampling parameters to metadata?", value=False)
+                    num_steps = gr.Slider(
+                        minimum=1, 
+                        maximum=30, 
+                        value=8, 
+                        step=1, 
+                        label="Total timesteps"
+                    )
+                    inject_step = gr.Slider(
+                        minimum=1, 
+                        maximum=15, 
+                        value=1, 
+                        step=1, 
+                        label="Feature sharing steps"
+                    )
+                    guidance = gr.Slider(
+                        minimum=1.0, 
+                        maximum=8.0, 
+                        value=2.0, 
+                        step=0.1, 
+                        label="Guidance", 
+                        interactive=not is_schnell
+                    )
                 
+                # Output display
                 output_image = gr.Image(label="Generated Image")
 
+        # Button click event to trigger the edit function
         generate_btn.click(
             fn=edit,
-            inputs=[init_image, source_prompt, target_prompt, num_steps, inject_step, guidance],
+            inputs=[
+                init_image, 
+                source_prompt, 
+                target_prompt, 
+                editing_strategy,  # Include the selected editing strategies
+                num_steps, 
+                inject_step, 
+                guidance
+            ],
             outputs=[output_image]
         )
-
-
+        
     return demo
-
-
-# if __name__ == "__main__":
-#     import argparse
-#     parser = argparse.ArgumentParser(description="Flux")
-#     parser.add_argument("--name", type=str, default="flux-dev", choices=list(configs.keys()), help="Model name")
-#     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu", help="Device to use")
-#     parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use")
-#     parser.add_argument("--share", action="store_true", help="Create a public link to your demo")
-
-#     parser.add_argument("--port", type=int, default=41035)
-#     args = parser.parse_args()
 
 demo = create_demo("flux-dev", "cuda")
 demo.launch()
