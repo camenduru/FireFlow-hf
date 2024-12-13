@@ -1,9 +1,9 @@
 [project]
-name = "RF-Solver-Editing"
+name = "FireFlow"
 authors = [
-  { name = "Jiangshan Wang, Junfu Pu, et al.", email = "wjs23@mails.tsinghua.edu.cn" },
+  { name = "Yingying Deng, Xiangyu He, et al.", email = "iva.shuanholmes@gmail.com" },
 ]
-description = "Inference codebase for RF-Solver-Editing"
+description = "Inference codebase for FireFlow"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE.md" }
