@@ -53,10 +53,6 @@ ae = load_ae(name, device="cpu" if offload else torch_device)
 t5 = load_t5(device, max_length=256 if name == "flux-schnell" else 512)
 clip = load_clip(device)
 model = load_flow_model(name, device="cpu" if offload else torch_device)
-if offload:
-    model.cpu()
-    torch.cuda.empty_cache()
-    ae.encoder.to(torch_device)
 is_schnell = False
 output_dir = 'result'
 add_sampling_metadata = True
@@ -68,7 +64,7 @@ def edit(init_image, source_prompt, target_prompt, editing_strategy, num_steps, 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.cuda.empty_cache()
     seed = None
-        
+    
     shape = init_image.shape
 
     new_h = shape[0] if shape[0] % 16 == 0 else shape[0] - shape[0] % 16
@@ -81,6 +77,11 @@ def edit(init_image, source_prompt, target_prompt, editing_strategy, num_steps, 
     init_image = torch.from_numpy(init_image).permute(2, 0, 1).float() / 127.5 - 1
     init_image = init_image.unsqueeze(0) 
     init_image = init_image.to(device)
+    if offload:
+        model.cpu()
+        torch.cuda.empty_cache()
+        ae.encoder.to(device)
+        
     with torch.no_grad():
         init_image = ae.encode(init_image.to()).to(torch.bfloat16)
 
@@ -113,7 +114,7 @@ def edit(init_image, source_prompt, target_prompt, editing_strategy, num_steps, 
     info['inject_step'] = min(inject_step, num_steps)
     info['reuse_v']= False
     info['editing_strategy']= " ".join(editing_strategy)
-    info['start_layer_index'] = 20
+    info['start_layer_index'] = 0
     info['end_layer_index'] = 37
     qkv_ratio = '1.0,1.0,1.0'
     info['qkv_ratio'] = list(map(float, qkv_ratio.split(',')))
@@ -193,6 +194,7 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
         """
     description = r"""
         <b>Official 🤗 Gradio Demo</b> for <a href='https://github.com/HolmesShuan/FireFlow-Fast-Inversion-of-Rectified-Flow-for-Image-Semantic-Editing' target='_blank'><b>🔥FireFlow: Fast Inversion of Rectified Flow for Image Semantic Editing</b></a>.<br>
+        <b>Tips</b> 🔔: If the results are not satisfactory, consider slightly increasing the total number of timesteps 📈. Each editing technique produces distinct effects, so feel free to experiment and explore their possibilities!
     """
     article = r"""
     If you find our work helpful, we would greatly appreciate it if you could ⭐ our <a href='https://github.com/HolmesShuan/FireFlow-Fast-Inversion-of-Rectified-Flow-for-Image-Semantic-Editing' target='_blank'>GitHub repository</a>. Thank you for your support!
@@ -200,6 +202,15 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
     css = '''
     .gradio-container {width: 85% !important}
     '''
+    
+    # Pre-defined examples
+    examples = [
+        ["example_images/dog.jpg", "Photograph of a dog on the grass", "Photograph of a cat on the grass", ['replace_v'], 8, 1, 2.0],
+        ["example_images/gold.jpg", "3d melting gold render", "a cat in the style of 3d melting gold render", ['replace_v'], 8, 1, 2.0],
+        ["example_images/gold.jpg", "3d melting gold render", "a cat in the style of 3d melting gold render", ['replace_v'], 10, 1, 2.0],
+        ["example_images/art.jpg", "", "a vivid depiction of the Batman, featuring rich, dynamic colors,  and a blend of realistic and abstract elements with dynamic splatter art.", ['add_q'], 8, 1, 2.0],
+    ]
+    
     with gr.Blocks(css=css) as demo:
         # Add a title, description, and additional information
         gr.HTML(title)
@@ -266,7 +277,22 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
             outputs=[output_image]
         )
         
+        # Add examples
+        gr.Examples(
+            examples=examples,
+            inputs=[
+                init_image, 
+                source_prompt, 
+                target_prompt, 
+                editing_strategy, 
+                num_steps, 
+                inject_step, 
+                guidance
+            ]
+        )
+        
     return demo
+
 
 demo = create_demo("flux-dev", "cuda")
 demo.launch()
