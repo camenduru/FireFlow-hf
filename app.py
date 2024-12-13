@@ -60,7 +60,7 @@ add_sampling_metadata = True
 @spaces.GPU(duration=120)
 @torch.inference_mode()
 def edit(init_image, source_prompt, target_prompt, editing_strategy, num_steps, inject_step, guidance, seed):
-    global ae, t5, clip, model, name, is_schnell, output_dir, add_sampling_metadata
+    global ae, t5, clip, model, name, is_schnell, output_dir, add_sampling_metadata, offload
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.cuda.empty_cache()
     seed = None
