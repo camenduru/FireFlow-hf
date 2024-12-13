@@ -1,5 +1,5 @@
 ---
-title: RF-Solver-Edit
+title: FireFlow
 emoji: 🪄
 colorFrom: purple
 colorTo: red
@@ -10,5 +10,5 @@ pinned: false
 license: other
 license_name: flux-1-dev-non-commercial-license
 license_link: LICENSE.md
-short_description: High Quality Inversion and Editing of FLUX and OpenSora.
+short_description: Fast Inversion of Rectified Flow for Image Semantic Editing.
 ---
