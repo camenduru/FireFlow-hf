@@ -291,7 +291,7 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
             ],
             outputs=[output_image],
             fn=edit,
-            cache_mode='eager',
+            cache_mode='lazy',
             cache_examples=True      # Enable caching
         )
         
