@@ -65,6 +65,20 @@ def edit(init_image, source_prompt, target_prompt, editing_strategy, num_steps, 
     torch.cuda.empty_cache()
     seed = None
     
+    pil_img = Image.fromarray(init_image)
+    width, height = pil_img.size
+    if max(width, height) > 1024:
+        if height > width:
+            new_height = 1024
+            new_width = int((new_height / height) * width)
+        else:
+            new_width = 1024
+            new_height = int((new_width / width) * height)
+        
+        pil_img = pil_img.resize((new_width, new_height))
+        init_image = np.array(pil_img)
+        print('[INFO] resize large image to [1024, X].')
+    
     shape = init_image.shape
 
     new_h = shape[0] if shape[0] % 16 == 0 else shape[0] - shape[0] % 16
@@ -193,8 +207,12 @@ def create_demo(model_name: str, device: str = "cuda:0" if torch.cuda.is_availab
         <h1 align="center">🔥FireFlow: Fast Inversion of Rectified Flow for Image Semantic Editing</h1>
         """
     description = r"""
-        <b>Official 🤗 Gradio Demo</b> for <a href='https://github.com/HolmesShuan/FireFlow-Fast-Inversion-of-Rectified-Flow-for-Image-Semantic-Editing' target='_blank'><b>🔥FireFlow: Fast Inversion of Rectified Flow for Image Semantic Editing</b></a>.<br>
-        <b>Tips</b> 🔔: If the results are not satisfactory, consider slightly increasing the total number of timesteps 📈. Each editing technique produces distinct effects, so feel free to experiment and explore their possibilities!
+        <h3>Tips 🔔:</h3>
+        <ol>
+        <li>We automatically resize images larger than 1024x1024 by scaling the longer edge to 1024 to prevent out-of-memory errors. Larger image is 🆗.</li>
+        <li>If the results are not satisfactory, consider slightly increasing the total number of timesteps 📈. </li>
+        <li>Each editing technique produces distinct effects, so feel free to experiment and explore their possibilities 🎨 !. </li>
+        </ol>
     """
     article = r"""
     If you find our work helpful, we would greatly appreciate it if you could ⭐ our <a href='https://github.com/HolmesShuan/FireFlow-Fast-Inversion-of-Rectified-Flow-for-Image-Semantic-Editing' target='_blank'>GitHub repository</a>. Thank you for your support!
